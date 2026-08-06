@@ -1,0 +1,34 @@
+[
+  {
+    "company": "Notion",
+    "title": "Software Engineer, New Grad",
+    "location": "New York, NY",
+    "expected_priority": "A",
+    "expected_fit_min": 85,
+    "description": "Looking for a New Grad Software Engineer with strong background in Python, ML models, and graduate degree."
+  },
+  {
+    "company": "Anthropic",
+    "title": "AI Platform Engineer",
+    "location": "San Francisco, CA / Remote",
+    "expected_priority": "A",
+    "expected_fit_min": 90,
+    "description": "Build high throughput model training infra. Strong Python, PyTorch, and backend engineering skills."
+  },
+  {
+    "company": "Excluded Corp",
+    "title": "Software Engineer",
+    "location": "Remote",
+    "expected_priority": "Skip",
+    "expected_fit_min": 0,
+    "description": "Standard SWE role at Excluded Corp."
+  },
+  {
+    "company": "Defense Tech",
+    "title": "Aerospace Software Engineer",
+    "location": "Washington, DC",
+    "expected_priority": "Skip",
+    "expected_fit_min": 0,
+    "description": "Must hold active Top Secret TS/SCI Clearance with polygraph."
+  }
+]
