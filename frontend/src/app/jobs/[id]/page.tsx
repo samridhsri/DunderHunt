@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import ContactFinderModal from "@/components/ContactFinderModal";
 import IngestModal from "@/components/IngestModal";
+import OutreachPanel from "@/components/outreach/OutreachPanel";
 import { fetchJobDetail, updateJobDecision, JobItem } from "@/lib/api";
 import { Building2, MapPin, Sparkles, Check, BookmarkX, UserCheck, ArrowLeft, AlertTriangle, FileText, CheckCircle2 } from "lucide-react";
 
@@ -170,19 +171,8 @@ export default function JobDetailPage() {
             </div>
           )}
 
-          {/* Section: OUTREACH */}
-          <div className="rounded-2xl bg-gray-900/80 border border-gray-800 p-5 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-indigo-400">OUTREACH</div>
-              <p className="text-xs text-gray-400 mt-0.5">Outreach is OFF by default. Search public sources to surface hiring managers.</p>
-            </div>
-            <button
-              onClick={() => setContactModalOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition-all"
-            >
-              <UserCheck className="h-4 w-4" /> Find Contact
-            </button>
-          </div>
+          {/* Section: OUTREACH MODULE */}
+          <OutreachPanel jobId={job.id} company={job.company} />
 
           {/* Toggleable Detailed Analysis */}
           {analysis && (
