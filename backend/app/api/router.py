@@ -13,8 +13,16 @@ from app.schemas.schemas import (
 )
 from app.services.ingestion import IngestionService
 from app.services.fit_engine import FitEngineService
-from app.services.contact_finder import ContactFinderService
-from app.services.outreach_service import OutreachService
+from app.services.outreach.service import OutreachService
+from app.services.contacts.service import ContactService
+from app.schemas.schemas import (
+    CandidateProfileRead, CandidateProfileUpdate,
+    JobIngestRequest, JobRead, JobAnalysisRead, DecisionUpdateRequest,
+    ContactRead, ContactImportRequest, ContactSelectRequest, FindContactsResponse,
+    OutreachToggleRequest, OutreachStateRead, OutreachDraftRequest, OutreachDraftUpdateRequest,
+    OutreachDraftResponse, OutreachMarkSentRequest, OutreachFollowUpRequest, OutreachEventRead,
+    ApplicationRead, ApplicationUpdate
+)
 
 api_router = APIRouter()
 
@@ -128,7 +136,6 @@ async def list_jobs(
         query = query.where(Job.status == status_filter)
 
     query = query.order_by(
-        # Sort priority A first, then fit score desc
         Job.priority.asc(),
         desc(Job.fit_score)
     )
@@ -172,7 +179,6 @@ async def update_job_decision(job_id: int, request: DecisionUpdateRequest, db: A
         job.status = "Withdrawn"
         job.next_action = "Skipped"
 
-    # Create or update application record
     app_res = await db.execute(select(Application).where(Application.job_id == job.id))
     app_rec = app_res.scalar_one_or_none()
     if not app_rec:
@@ -187,48 +193,97 @@ async def update_job_decision(job_id: int, request: DecisionUpdateRequest, db: A
     await db.refresh(job)
     return job
 
-# --- FIND CONTACT API ---
-@api_router.post("/jobs/{job_id}/find-contacts", response_model=FindContactsResponse)
-async def find_contacts_for_job(job_id: int, db: AsyncSession = Depends(get_db)):
+# --- OUTREACH MODULE API ---
+@api_router.post("/jobs/{job_id}/outreach/enable", response_model=OutreachStateRead)
+async def enable_outreach(job_id: int, db: AsyncSession = Depends(get_db)):
     try:
-        contacts = await ContactFinderService.find_and_rank_contacts(db, job_id)
-        contact_reads = [
-            ContactRead(
-                id=c.id,
-                name=c.name,
-                company=c.company,
-                title=c.title,
-                team=c.team,
-                linkedin_url=c.linkedin_url,
-                github_url=c.github_url,
-                email=c.email,
-                source=c.source,
-                overall_score=c.overall_score,
-                recommendation_reason=f"Top candidate match for {c.title}",
-                selected=False
-            )
-            for c in contacts
-        ]
-        return FindContactsResponse(job_id=job_id, contacts=contact_reads)
+        return await OutreachService.enable_outreach(db, job_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-# --- OUTREACH DRAFT API ---
-@api_router.post("/jobs/{job_id}/outreach", response_model=OutreachDraftResponse)
-async def generate_outreach_draft(job_id: int, req: OutreachDraftRequest, db: AsyncSession = Depends(get_db)):
+@api_router.post("/jobs/{job_id}/outreach/disable", response_model=OutreachStateRead)
+async def disable_outreach(job_id: int, db: AsyncSession = Depends(get_db)):
     try:
-        draft = await OutreachService.generate_outreach_draft(
-            db, job_id=job_id, contact_id=req.contact_id, channel=req.channel, purpose=req.purpose
-        )
-        return OutreachDraftResponse(
-            job_id=job_id,
-            contact_id=req.contact_id,
-            channel=req.channel,
-            purpose=req.purpose,
-            draft_message=draft
+        return await OutreachService.disable_outreach(db, job_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@api_router.get("/jobs/{job_id}/outreach", response_model=OutreachStateRead)
+async def get_outreach_state(job_id: int, db: AsyncSession = Depends(get_db)):
+    try:
+        return await OutreachService.get_or_create_state(db, job_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@api_router.get("/jobs/{job_id}/contacts", response_model=List[ContactRead])
+async def get_job_contacts(job_id: int, db: AsyncSession = Depends(get_db)):
+    res = await db.execute(
+        select(Contact)
+        .join(JobContact, JobContact.contact_id == Contact.id)
+        .where(JobContact.job_id == job_id)
+    )
+    return list(res.scalars().all())
+
+@api_router.post("/jobs/{job_id}/contacts/discover", response_model=List[ContactRead])
+async def discover_contacts(job_id: int, db: AsyncSession = Depends(get_db)):
+    try:
+        contacts = await OutreachService.discover_contacts_for_job(db, job_id)
+        return contacts
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@api_router.post("/jobs/{job_id}/contacts/select", response_model=OutreachStateRead)
+async def select_contact(job_id: int, req: ContactSelectRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        return await OutreachService.select_contact_for_job(db, job_id, req.contact_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@api_router.post("/contacts/import", response_model=ContactRead)
+async def import_contact(req: ContactImportRequest, db: AsyncSession = Depends(get_db)):
+    return await ContactService.import_contact(db, req)
+
+@api_router.get("/contacts", response_model=List[ContactRead])
+async def search_contacts(
+    company: Optional[str] = None,
+    query: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    return await ContactService.get_contacts(db, company=company, query=query)
+
+@api_router.post("/jobs/{job_id}/outreach/draft", response_model=OutreachStateRead)
+async def generate_draft(job_id: int, req: OutreachDraftRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        return await OutreachService.generate_draft_message(
+            db, job_id, contact_id=req.contact_id, channel=req.channel, purpose=req.purpose
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+@api_router.put("/jobs/{job_id}/outreach/draft", response_model=OutreachStateRead)
+async def update_draft(job_id: int, req: OutreachDraftUpdateRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        return await OutreachService.update_draft(db, job_id, req.draft_message, req.subject)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@api_router.post("/jobs/{job_id}/outreach/sent", response_model=OutreachEventRead)
+async def mark_sent(job_id: int, req: OutreachMarkSentRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        return await OutreachService.mark_sent(db, job_id, channel=req.channel)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.post("/jobs/{job_id}/outreach/follow-up", response_model=OutreachStateRead)
+async def generate_followup(job_id: int, req: OutreachFollowUpRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        return await OutreachService.generate_followup_draft(db, job_id, notes=req.notes)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.get("/jobs/{job_id}/outreach/events", response_model=List[OutreachEventRead])
+async def list_outreach_events(job_id: int, db: AsyncSession = Depends(get_db)):
+    return await OutreachService.get_outreach_events(db, job_id)
 
 # --- APPLICATION TRACKING API ---
 @api_router.put("/applications/{job_id}", response_model=ApplicationRead)
@@ -245,3 +300,4 @@ async def update_application(job_id: int, req: ApplicationUpdate, db: AsyncSessi
     await db.commit()
     await db.refresh(app_rec)
     return app_rec
+

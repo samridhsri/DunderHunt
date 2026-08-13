@@ -140,18 +140,54 @@ class LLMProvider:
     async def _call_openai(prompt: str, response_schema: Type[T], api_key: str, system_instruction: str) -> T:
         url = "https://api.openai.com/v1/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"}
+        
+        schema_props = list(response_schema.model_fields.keys())
+        enhanced_system = (
+            f"{system_instruction}\n\n"
+            f"CRITICAL REQUIREMENT: Output a valid, flat JSON object containing these top-level keys: {schema_props}.\n"
+            f"Do NOT output JSON schema definitions ($defs, $ref) or wrap fields in outer container keys."
+        )
+
         payload = {
-            "model": "gpt-4o-mini",
+            "model": settings.OPENAI_MODEL,
             "messages": [
-                {"role": "system", "content": system_instruction},
+                {"role": "system", "content": enhanced_system},
                 {"role": "user", "content": prompt}
             ],
             "response_format": {"type": "json_object"}
         }
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=35.0) as client:
             res = await client.post(url, headers=headers, json=payload)
             res.raise_for_status()
             data = res.json()
             text_content = data["choices"][0]["message"]["content"]
             parsed_json = json.loads(text_content)
+
+            # Un-wrap if LLM wrapped fields in a top-level container key
+            if len(parsed_json) == 1 and isinstance(list(parsed_json.values())[0], dict):
+                inner_dict = list(parsed_json.values())[0]
+                if any(k in inner_dict for k in response_schema.model_fields.keys()):
+                    parsed_json = inner_dict
+
+            # Normalize common field aliases for contact schemas
+            if isinstance(parsed_json, dict) and "contacts" in parsed_json and isinstance(parsed_json["contacts"], list):
+                for item in parsed_json["contacts"]:
+                    if isinstance(item, dict):
+                        if "full_name" in item and "name" not in item:
+                            item["name"] = item.pop("full_name")
+                        elif "contact_name" in item and "name" not in item:
+                            item["name"] = item.pop("contact_name")
+
+                        if "job_title" in item and "title" not in item:
+                            item["title"] = item.pop("job_title")
+                        elif "contact_title" in item and "title" not in item:
+                            item["title"] = item.pop("contact_title")
+                        elif "role" in item and "title" not in item:
+                            item["title"] = item.pop("role")
+
+                        if "company_name" in item and "company" not in item:
+                            item["company"] = item.pop("company_name")
+                        if "linkedin" in item and "linkedin_url" not in item:
+                            item["linkedin_url"] = item.pop("linkedin")
+
             return response_schema(**parsed_json)
