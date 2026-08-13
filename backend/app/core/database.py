@@ -39,7 +39,26 @@ async def init_db():
         # Safe migration check for SQLite columns
         if "sqlite" in db_url:
             from sqlalchemy import text
-            try:
-                await conn.execute(text("ALTER TABLE candidate_profile ADD COLUMN projects JSON DEFAULT '[]'"))
-            except Exception:
-                pass # Column already exists
+            migrations = [
+                "ALTER TABLE candidate_profile ADD COLUMN projects JSON DEFAULT '[]'",
+                "ALTER TABLE contacts ADD COLUMN relationship VARCHAR(255)",
+                "ALTER TABLE contacts ADD COLUMN company_verified BOOLEAN DEFAULT 1",
+                "ALTER TABLE contacts ADD COLUMN role_verified BOOLEAN DEFAULT 1",
+                "ALTER TABLE contacts ADD COLUMN verification_confidence FLOAT DEFAULT 0.9",
+                "ALTER TABLE contacts ADD COLUMN last_verified_at DATETIME",
+                "ALTER TABLE outreach_events ADD COLUMN channel VARCHAR(50) DEFAULT 'LinkedIn'",
+                "ALTER TABLE outreach_events ADD COLUMN subject TEXT",
+                "ALTER TABLE outreach_events ADD COLUMN message TEXT",
+                "ALTER TABLE outreach_events ADD COLUMN sent_at DATETIME",
+                "ALTER TABLE outreach_events ADD COLUMN status VARCHAR(50) DEFAULT 'sent'",
+                "ALTER TABLE outreach_events ADD COLUMN response_at DATETIME",
+                "ALTER TABLE outreach_events ADD COLUMN is_follow_up BOOLEAN DEFAULT 0",
+                "ALTER TABLE outreach_events ADD COLUMN sequence_number INTEGER DEFAULT 1",
+                "ALTER TABLE outreach_events ADD COLUMN follow_up_allowed BOOLEAN DEFAULT 1",
+                "ALTER TABLE outreach_events ADD COLUMN follow_up_at DATETIME",
+            ]
+            for stmt in migrations:
+                try:
+                    await conn.execute(text(stmt))
+                except Exception:
+                    pass # Column already exists

@@ -1,16 +1,16 @@
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # Pydantic schemas for LLM structured output parsing
 
 class JobFitOutput(BaseModel):
-    technical_fit: int = Field(ge=0, le=100)
-    experience_fit: int = Field(ge=0, le=100)
-    education_fit: int = Field(ge=0, le=100)
-    location_fit: int = Field(ge=0, le=100)
-    authorization_fit: int = Field(ge=0, le=100)
-    career_alignment: int = Field(ge=0, le=100)
-    overall_score: int = Field(ge=0, le=100)
+    technical_fit: int
+    experience_fit: int
+    education_fit: int
+    location_fit: int
+    authorization_fit: int
+    career_alignment: int
+    overall_score: int
     priority: str = Field(description="Priority grade: A (90-100), B (80-89), C (70-79), or Skip (<70)")
     recommendation: str = Field(description="Action recommendation: APPLY, SAVE, or SKIP")
     strengths: List[str]
@@ -19,24 +19,58 @@ class JobFitOutput(BaseModel):
     resume_changes_needed: List[str]
     reasoning_summary: str
 
+    @field_validator("technical_fit", "experience_fit", "education_fit", "location_fit", "authorization_fit", "career_alignment", "overall_score", mode="before")
+    @classmethod
+    def convert_score_to_int(cls, v):
+        if isinstance(v, float):
+            if v <= 10.0:
+                return int(round(v * 10))
+            return int(round(v))
+        if isinstance(v, str):
+            try:
+                val = float(v)
+                if val <= 10.0:
+                    return int(round(val * 10))
+                return int(round(val))
+            except ValueError:
+                return 75
+        return v
+
 class ContactItemSchema(BaseModel):
     name: str
-    company: str
+    company: Optional[str] = None
     title: str
     team: Optional[str] = None
     linkedin_url: Optional[str] = None
     github_url: Optional[str] = None
     email: Optional[str] = None
-    source: str
-    overall_score: int
-    recommendation_reason: str
+    source: str = "Public Search"
+    overall_score: int = 85
+    recommendation_reason: str = "Top match for role"
     selected: bool = False
 
 class ContactRankOutput(BaseModel):
     contacts: List[ContactItemSchema]
 
+class ExtractedPersonSchema(BaseModel):
+    name: str
+    title: str
+    company: str
+    profile_url: Optional[str] = None
+    source_url: Optional[str] = None
+    evidence: List[str] = Field(default_factory=list)
+
+class CandidateExtractionOutput(BaseModel):
+    people: List[ExtractedPersonSchema]
+
 class OutreachDraftOutput(BaseModel):
     draft_message: str
+    subject: Optional[str] = None
+    reasoning: Optional[str] = None
+
+class FollowUpDraftOutput(BaseModel):
+    follow_up_message: str
+    reasoning: Optional[str] = None
 
 # Versioned Prompts
 JOB_FIT_SYSTEM_INSTRUCTION = """You are an expert technical career decision-support advisor.
@@ -77,30 +111,68 @@ Evaluate the fit score accurately according to the 7-component formula:
 
 Provide concise JSON output."""
 
-CONTACT_RANK_PROMPT_TEMPLATE = """PROMPT_VERSION: contact_rank_v1
+CANDIDATE_EXTRACTION_PROMPT_TEMPLATE = """PROMPT_VERSION: candidate_extract_v1
+
+=== SEARCH PAGE CONTENT ===
+Company: {company}
+Role: {role}
+Content Snippets:
+{snippets}
+
+Extract people and only facts explicitly supported by this content snippet.
+Do NOT infer employment, team membership, or hiring manager responsibility without explicit text evidence.
+Return strict JSON output with list of extracted people."""
+
+CONTACT_RANK_PROMPT_TEMPLATE = """PROMPT_VERSION: contact_rank_v2
 
 === TARGET JOB ===
 Company: {company}
 Title: {title}
 Team/Function: {team}
 
-=== CANDIDATE CONTACTS SURFACED FROM PUBLIC SEARCH ===
+=== PRE-FILTERED CANDIDATES ===
 {candidates_json}
 
-Evaluate and rank the top 3 contacts based on relevance, title match (Hiring Manager > Team Lead > Recruiter > Employee), and reachability.
-Return strict JSON with the top 3 ranked contacts."""
+Rank these candidates for relevance to this specific job.
+Only use evidence provided. Do not infer employment, team membership, or hiring responsibility without evidence.
+Assign a fit score (0-100) and concise recommendation reason for each candidate.
+Return strict JSON output with the top 3 ranked contacts."""
 
-OUTREACH_DRAFT_PROMPT_TEMPLATE = """PROMPT_VERSION: outreach_v1
+OUTREACH_DRAFT_PROMPT_TEMPLATE = """PROMPT_VERSION: outreach_v2
 
 === RECIPIENT ===
-Name: {contact_name}
+Contact Name: {contact_name}
+Contact Title: {contact_title}
+Company: {company}
+Relationship: {relationship}
+
+=== JOB & CANDIDATE CONTEXT ===
+Job Title: {job_title}
+Candidate Name: {candidate_name}
+Relevant Experience Highlights: {relevant_user_experience}
+Channel: {channel}
+Outreach Purpose / Goal: {purpose}
+
+Write ONE concise, compelling outreach message tailored strictly to this channel and purpose.
+If channel is Email, provide a short professional subject line.
+Keep the draft under 120 words. Avoid generic greetings or AI clichés. Output structured JSON matching OutreachDraftOutput."""
+
+FOLLOW_UP_DRAFT_PROMPT_TEMPLATE = """PROMPT_VERSION: follow_up_v1
+
+=== RECIPIENT ===
+Contact Name: {contact_name}
 Title: {contact_title}
 Company: {company}
 
-=== JOB & CANDIDATE ===
-Job Title: {job_title}
-Candidate Name: {candidate_name}
+=== PREVIOUS OUTREACH SENT ===
 Channel: {channel}
-Purpose: {purpose}
+Sent Date: {sent_at}
+Original Message:
+{previous_message}
 
-Draft ONE highly concise, professional message tailored to this channel and purpose. Keep it under 120 words. No boilerplate greetings or unnecessary AI fluff."""
+=== FOLLOW-UP GOAL ===
+Purpose: Polite follow-up after no response.
+Additional Notes: {notes}
+
+Draft ONE short, polite follow-up message (under 60 words) referencing the previous message. Output structured JSON matching FollowUpDraftOutput."""
+

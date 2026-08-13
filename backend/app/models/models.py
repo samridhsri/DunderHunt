@@ -1,7 +1,7 @@
 import datetime
 from typing import Optional, List, Dict, Any
 from sqlalchemy import String, Integer, Float, Text, Boolean, DateTime, ForeignKey, JSON
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship as sa_relationship
 from app.core.database import Base
 
 def utcnow():
@@ -71,9 +71,10 @@ class Job(Base):
     updated_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
     
     # Relationships
-    analysis: Mapped[Optional["JobAnalysis"]] = relationship("JobAnalysis", back_populates="job", uselist=False, cascade="all, delete-orphan", lazy="selectin")
-    application: Mapped[Optional["Application"]] = relationship("Application", back_populates="job", uselist=False, cascade="all, delete-orphan")
-    contacts: Mapped[List["JobContact"]] = relationship("JobContact", back_populates="job", cascade="all, delete-orphan")
+    analysis: Mapped[Optional["JobAnalysis"]] = sa_relationship("JobAnalysis", back_populates="job", uselist=False, cascade="all, delete-orphan", lazy="selectin")
+    application: Mapped[Optional["Application"]] = sa_relationship("Application", back_populates="job", uselist=False, cascade="all, delete-orphan")
+    contacts: Mapped[List["JobContact"]] = sa_relationship("JobContact", back_populates="job", cascade="all, delete-orphan")
+    outreach_state: Mapped[Optional["OutreachStateRecord"]] = sa_relationship("OutreachStateRecord", back_populates="job", uselist=False, cascade="all, delete-orphan", lazy="selectin")
 
 class JobAnalysis(Base):
     __tablename__ = "job_analysis"
@@ -100,7 +101,7 @@ class JobAnalysis(Base):
     
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     
-    job: Mapped["Job"] = relationship("Job", back_populates="analysis")
+    job: Mapped["Job"] = sa_relationship("Job", back_populates="analysis")
 
 class Contact(Base):
     __tablename__ = "contacts"
@@ -110,6 +111,7 @@ class Contact(Base):
     company: Mapped[str] = mapped_column(String(255), index=True)
     title: Mapped[str] = mapped_column(String(255))
     team: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    relationship: Mapped[Optional[str]] = mapped_column(String(255), nullable=True) # e.g. "NYU alumni", "Met at conference", "Public contact"
     
     linkedin_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     github_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
@@ -126,9 +128,13 @@ class Contact(Base):
     role_relevance_score: Mapped[float] = mapped_column(Float, default=0.8)
     overall_score: Mapped[int] = mapped_column(Integer, default=85)
     
+    company_verified: Mapped[bool] = mapped_column(Boolean, default=True)
+    role_verified: Mapped[bool] = mapped_column(Boolean, default=True)
+    verification_confidence: Mapped[float] = mapped_column(Float, default=0.9)
     last_verified_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     
-    jobs: Mapped[List["JobContact"]] = relationship("JobContact", back_populates="contact")
+    jobs: Mapped[List["JobContact"]] = sa_relationship("JobContact", back_populates="contact")
+    outreach_events: Mapped[List["OutreachEvent"]] = sa_relationship("OutreachEvent", back_populates="contact")
 
 class JobContact(Base):
     __tablename__ = "job_contacts"
@@ -140,8 +146,31 @@ class JobContact(Base):
     recommendation_reason: Mapped[str] = mapped_column(Text, default="")
     selected: Mapped[bool] = mapped_column(Boolean, default=False)
     
-    job: Mapped["Job"] = relationship("Job", back_populates="contacts")
-    contact: Mapped["Contact"] = relationship("Contact", back_populates="jobs")
+    job: Mapped["Job"] = sa_relationship("Job", back_populates="contacts")
+    contact: Mapped["Contact"] = sa_relationship("Contact", back_populates="jobs")
+
+class OutreachStateRecord(Base):
+    __tablename__ = "outreach_states"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    job_id: Mapped[int] = mapped_column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"), unique=True)
+    
+    # State Enum: OFF, ENABLED, CHOOSING_CONTACT, DISCOVERING, CONTACT_SELECTED, DRAFTING, DRAFT_READY, SENT, FOLLOW_UP_AVAILABLE, FOLLOWED_UP
+    state: Mapped[str] = mapped_column(String(50), default="OFF")
+    selected_contact_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True)
+    
+    channel: Mapped[str] = mapped_column(String(50), default="LinkedIn") # LinkedIn, Email, Other
+    purpose: Mapped[str] = mapped_column(String(100), default="Introduce myself") # Introduce myself, Ask about the team, Ask for advice, Ask for referral
+    
+    current_draft: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    draft_subject: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    draft_reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    
+    job: Mapped["Job"] = sa_relationship("Job", back_populates="outreach_state")
+    selected_contact: Mapped[Optional["Contact"]] = sa_relationship("Contact", lazy="selectin")
 
 class Application(Base):
     __tablename__ = "applications"
@@ -162,7 +191,7 @@ class Application(Base):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     next_followup_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     
-    job: Mapped["Job"] = relationship("Job", back_populates="application")
+    job: Mapped["Job"] = sa_relationship("Job", back_populates="application")
 
 class OutreachEvent(Base):
     __tablename__ = "outreach_events"
@@ -171,12 +200,35 @@ class OutreachEvent(Base):
     job_id: Mapped[int] = mapped_column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"))
     contact_id: Mapped[int] = mapped_column(Integer, ForeignKey("contacts.id", ondelete="CASCADE"))
     
-    channel: Mapped[str] = mapped_column(String(50), default="LinkedIn") # LinkedIn, Email, Other
+    channel: Mapped[str] = mapped_column(String(50), default="LinkedIn")
+    subject: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     message: Mapped[str] = mapped_column(Text)
     sent_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     
-    response_status: Mapped[str] = mapped_column(String(50), default="Pending") # Pending, Replied, No Response
+    status: Mapped[str] = mapped_column(String(50), default="sent") # sent, replied, no_response
     response_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    
+    is_follow_up: Mapped[bool] = mapped_column(Boolean, default=False)
+    sequence_number: Mapped[int] = mapped_column(Integer, default=1)
     
     follow_up_allowed: Mapped[bool] = mapped_column(Boolean, default=True)
     follow_up_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    job: Mapped["Job"] = sa_relationship("Job")
+    contact: Mapped["Contact"] = sa_relationship("Contact", back_populates="outreach_events")
+
+class SearchCache(Base):
+    __tablename__ = "search_cache"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    cache_key: Mapped[str] = mapped_column(String(255), unique=True, index=True) # company|role|search_version
+    company: Mapped[str] = mapped_column(String(255), index=True)
+    role: Mapped[str] = mapped_column(String(255))
+    
+    query_count: Mapped[int] = mapped_column(Integer, default=4)
+    raw_results: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
+    filtered_results: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
+    search_version: Mapped[str] = mapped_column(String(50), default="v1")
+    
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+

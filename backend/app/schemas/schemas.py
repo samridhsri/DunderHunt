@@ -104,25 +104,59 @@ class ContactRead(BaseModel):
     company: str
     title: str
     team: Optional[str] = None
+    relationship: Optional[str] = None
     linkedin_url: Optional[str] = None
     github_url: Optional[str] = None
     personal_url: Optional[str] = None
     email: Optional[str] = None
     source: str
     overall_score: int
+    company_verified: bool = True
+    role_verified: bool = True
+    verification_confidence: float = 0.9
     recommendation_reason: Optional[str] = None
     selected: bool = False
     model_config = ConfigDict(from_attributes=True)
+
+class ContactImportRequest(BaseModel):
+    name: str
+    company: str
+    title: str
+    profile_url: Optional[str] = None
+    email: Optional[str] = None
+    relationship: Optional[str] = "Imported contact"
+
+class ContactSelectRequest(BaseModel):
+    contact_id: int
 
 class FindContactsResponse(BaseModel):
     job_id: int
     contacts: List[ContactRead]
 
-# Outreach Schemas
+# Outreach Module Schemas
+class OutreachToggleRequest(BaseModel):
+    enabled: bool
+
+class OutreachStateRead(BaseModel):
+    job_id: int
+    state: str # OFF, ENABLED, CHOOSING_CONTACT, DISCOVERING, CONTACT_SELECTED, DRAFTING, DRAFT_READY, SENT, FOLLOW_UP_AVAILABLE, FOLLOWED_UP
+    selected_contact: Optional[ContactRead] = None
+    channel: str = "LinkedIn"
+    purpose: str = "Introduce myself"
+    current_draft: Optional[str] = None
+    draft_subject: Optional[str] = None
+    draft_reasoning: Optional[str] = None
+    updated_at: datetime.datetime
+    model_config = ConfigDict(from_attributes=True)
+
 class OutreachDraftRequest(BaseModel):
-    contact_id: int
+    contact_id: Optional[int] = None
     channel: str = "LinkedIn" # "LinkedIn", "Email", "Other"
-    purpose: str = "Introduction" # "Introduction", "Ask about team", "Referral", "Role-specific question"
+    purpose: str = "Introduce myself" # "Introduce myself", "Ask about the team", "Ask for advice", "Ask for referral"
+
+class OutreachDraftUpdateRequest(BaseModel):
+    draft_message: str
+    subject: Optional[str] = None
 
 class OutreachDraftResponse(BaseModel):
     job_id: int
@@ -130,6 +164,37 @@ class OutreachDraftResponse(BaseModel):
     channel: str
     purpose: str
     draft_message: str
+    subject: Optional[str] = None
+    reasoning: Optional[str] = None
+
+class OutreachMarkSentRequest(BaseModel):
+    channel: Optional[str] = None
+
+class OutreachFollowUpRequest(BaseModel):
+    notes: Optional[str] = None
+
+class OutreachEventRead(BaseModel):
+    id: int
+    job_id: int
+    contact_id: int
+    channel: str
+    subject: Optional[str] = None
+    message: str
+    sent_at: datetime.datetime
+    status: str
+    is_follow_up: bool
+    sequence_number: int
+    model_config = ConfigDict(from_attributes=True)
+
+class OutreachContext(BaseModel):
+    job_title: str
+    company: str
+    contact_name: str
+    contact_title: str
+    relationship: str = "Professional"
+    relevant_user_experience: str = ""
+    purpose: str = "Introduce myself"
+    channel: str = "LinkedIn"
 
 # Application Schemas
 class ApplicationRead(BaseModel):
@@ -152,3 +217,4 @@ class ApplicationUpdate(BaseModel):
     outreach_enabled: Optional[bool] = None
     outreach_status: Optional[str] = None
     notes: Optional[str] = None
+
