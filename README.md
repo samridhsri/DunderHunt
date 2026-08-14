@@ -53,40 +53,40 @@ DunderHunt is built with a **FastAPI (Python 3.10+)** backend and a **Next.js 15
 ```mermaid
 flowchart TD
     subgraph INGESTION ["📥 1. Ingestion Layer"]
-        A[Job URL / Raw JD / Extension] --> B[Job Extractor & Normalizer]
-        B --> C[(PostgreSQL / SQLite)]
+        A["Job URL / Raw JD / Extension"] --> B["Job Extractor & Normalizer"]
+        B --> C[("PostgreSQL / SQLite")]
     end
 
     subgraph FIT_ENGINE ["🧠 2. Fit Engine Pipeline"]
-        C --> D{Layer 1: Deterministic Rules}
-        D -- Hard Fail / Excluded --> E[Priority: SKIP]
-        D -- Passed Hard Filters --> F[Layer 2: LLM Fit Evaluation]
-        Profile[(Candidate Profile\nSkills, Projects, Exp)] --> F
-        F --> G[Fit Score 0-100\nStrengths, Gaps, Tier A/B/C]
-        G --> H[Ranked Decision Queue]
+        C --> D{"Layer 1: Deterministic Rules"}
+        D -->|Hard Fail / Excluded| E["Priority: SKIP"]
+        D -->|Passed Hard Filters| F["Layer 2: LLM Fit Evaluation"]
+        Profile[("Candidate Profile<br/>Skills, Projects, Experience")] --> F
+        F --> G["Fit Score 0-100<br/>Strengths, Gaps, Tier A/B/C"]
+        G --> H["Ranked Decision Queue"]
     end
 
     subgraph DECISION ["🎯 3. Decision & State Machine"]
-        H --> I{User Decision}
-        I -->|Apply Directly| J[Application Tracker]
-        I -->|Save for Later| K[Saved Queue]
-        I -->|Skip| L[Skipped Archive]
-        I -->|Outreach Desired| M[Outreach State Machine\n10 Explicit States]
+        H --> I{"User Decision"}
+        I -->|Apply Directly| J["Application Tracker"]
+        I -->|Save for Later| K["Saved Queue"]
+        I -->|Skip| L["Skipped Archive"]
+        I -->|Outreach Desired| M["Outreach State Machine<br/>10 Explicit States"]
     end
 
     subgraph OUTREACH ["🔍 4. Contact Discovery & Drafting"]
-        M --> N[Serper / Public Search Provider]
-        N --> O[(Search Cache\nPersistent Cost Bounding)]
-        O --> P[Python Pre-Filter & LLM Ranker]
-        P --> Q[Top 3 Verified Contacts]
-        Q --> R[Personalized Pitch Generator]
-        R --> S[User Review, Edit & Copy]
+        M --> N["Serper / Public Search Provider"]
+        N --> O[("Search Cache<br/>Persistent Cost Bounding")]
+        O --> P["Python Pre-Filter & LLM Ranker"]
+        P --> Q["Top 3 Verified Contacts"]
+        Q --> R["Personalized Pitch Generator"]
+        R --> S["User Review, Edit & Copy"]
     end
 
     subgraph STARTUPS ["🚀 5. Startup Prospecting Hub"]
-        T[Startup Domain / URL] --> U[Automated Tech Stack & Headcount Enrichment]
-        U --> V[Persona Routing\nSize 1-15: Founder | 50+: Eng Mgr]
-        V --> W[Candidate-Matched Cold Pitch Generator]
+        T["Startup Domain / URL"] --> U["Automated Tech Stack & Headcount Enrichment"]
+        U --> V["Persona Routing<br/>Size 1-15: Founder / 50+: Eng Mgr"]
+        V --> W["Candidate-Matched Cold Pitch Generator"]
     end
 ```
 
