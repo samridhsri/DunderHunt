@@ -24,7 +24,11 @@ from app.schemas.schemas import (
     ApplicationRead, ApplicationUpdate
 )
 
+from app.api.v1.endpoints.startups import router as startups_router
+
 api_router = APIRouter()
+api_router.include_router(startups_router, prefix="/startups", tags=["startups"])
+
 
 # --- PROFILE API ---
 @api_router.get("/profile", response_model=CandidateProfileRead)

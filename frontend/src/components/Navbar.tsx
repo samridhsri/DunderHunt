@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Target, User, PlusCircle, LayoutDashboard } from "lucide-react";
+import { Target, User, PlusCircle, LayoutDashboard, Building2 } from "lucide-react";
 
 interface NavbarProps {
   onOpenIngest: () => void;
@@ -36,12 +36,20 @@ export default function Navbar({ onOpenIngest }: NavbarProps) {
             Dashboard Queue
           </Link>
           <Link
+            href="/startups"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800/60 hover:text-white transition-colors"
+          >
+            <Building2 className="h-4 w-4 text-purple-400" />
+            Startups Hub
+          </Link>
+          <Link
             href="/profile"
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800/60 hover:text-white transition-colors"
           >
             <User className="h-4 w-4 text-indigo-400" />
             Candidate Profile
           </Link>
+
           <button
             onClick={onOpenIngest}
             className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 hover:opacity-95 hover:scale-[1.02] active:scale-[0.98] transition-all"

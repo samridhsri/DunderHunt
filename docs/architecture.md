@@ -101,4 +101,16 @@ Tracks explicit 10-state lifecycle per job (`OFF`, `ENABLED`, `CHOOSING_CONTACT`
   4. Retained graceful multi-tier fallbacks: Serper Google API → Public Search → LLM Extraction → Company Directory fallback.
 - **Impact**: High-precision discovery of real named contacts with 100% API reliability, zero anti-bot rate-limits, and minimal API cost bounded by SearchCache.
 
+### Decision ADR-005: Startup Prospecting, Automated Enrichment & Candidate-Matched Pitch Generator
+- **Date**: 2026-08-13
+- **Context**: Users required a complementary startup-first outbound prospecting flow alongside the job-first inbound queue. This required automatically enriching company headcount and tech stack without manual user entry, discovering named decision-makers with titles/designations, and drafting personalized cold pitches matching candidate skills/projects to the startup's tech stack.
+- **Decision**:
+  1. Built `startups` and `startup_contacts` tables in `app/models/models.py`.
+  2. Implemented automated company enrichment (`StartupService.enrich_startup`) combining Serper Google Search snippets with structured LLM extraction (`StartupEnrichmentOutput`) and `SearchCache` caching (`startup_enrichment:{domain}`).
+  3. Established headcount-based persona routing (Size 1-15 -> Founder/CTO; Size 15-50 -> CTO/VP Eng; Size 50-200 -> Eng Manager/Recruiter) returning explicit contact Names, Designations, and public activity signals (`⚡ Serper Indexed`, `🎯 Persona Match`).
+  4. Implemented `StartupService.generate_pitch` using candidate profile (skills, projects, experience) and startup tech stack match to generate channel-specific pitches (`LinkedIn`, `Email`).
+  5. Built dedicated frontend **Startups Hub** page (`frontend/src/app/startups/page.tsx`) and navigation tab.
+- **Impact**: Zero manual employee count lookup required, zero LinkedIn scraping dependencies, automated headcount detection, exact contact names & designations, and high-conversion personalized pitches.
+
+
 

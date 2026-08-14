@@ -328,3 +328,116 @@ export async function fetchOutreachEvents(jobId: number): Promise<OutreachEvent[
   return res.json();
 }
 
+// --- STARTUPS API ---
+export interface StartupContact {
+  id: number;
+  startup_id: number;
+  name: string;
+  title: string;
+  persona_type: string;
+  linkedin_url?: string;
+  github_url?: string;
+  email?: string;
+  activity_score: number;
+  activity_signals: string[];
+  fit_score: number;
+  created_at: string;
+}
+
+export interface StartupItem {
+  id: number;
+  name: string;
+  domain?: string;
+  company_size: string;
+  funding_stage: string;
+  summary?: string;
+  tech_stack: string[];
+  target_roles: string[];
+  website_url?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  contacts: StartupContact[];
+}
+
+export interface StartupEnrichmentResponse {
+  name: string;
+  domain?: string;
+  company_size: string;
+  funding_stage: string;
+  summary?: string;
+  tech_stack: string[];
+  target_roles: string[];
+  website_url?: string;
+}
+
+export interface StartupDraftPitchResponse {
+  contact_id: number;
+  contact_name: string;
+  contact_title: string;
+  company_name: string;
+  channel: string;
+  purpose: string;
+  subject?: string;
+  draft_message: string;
+  reasoning?: string;
+}
+
+export async function enrichStartup(domainOrName: string): Promise<StartupEnrichmentResponse> {
+  const res = await fetch(`${API_BASE}/startups/enrich`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ domain_or_name: domainOrName }),
+  });
+  if (!res.ok) throw new Error("Failed to enrich startup");
+  return res.json();
+}
+
+export async function createStartup(payload: Partial<StartupItem>): Promise<StartupItem> {
+  const res = await fetch(`${API_BASE}/startups/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to create startup");
+  return res.json();
+}
+
+export async function fetchStartups(): Promise<StartupItem[]> {
+  const res = await fetch(`${API_BASE}/startups/`);
+  if (!res.ok) throw new Error("Failed to fetch startups");
+  return res.json();
+}
+
+export async function fetchStartupDetail(startupId: number): Promise<StartupItem> {
+  const res = await fetch(`${API_BASE}/startups/${startupId}`);
+  if (!res.ok) throw new Error("Failed to fetch startup detail");
+  return res.json();
+}
+
+export async function discoverStartupContacts(startupId: number): Promise<StartupContact[]> {
+  const res = await fetch(`${API_BASE}/startups/${startupId}/contacts/discover`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to discover startup contacts");
+  return res.json();
+}
+
+export async function draftStartupPitch(contactId: number, channel = "LinkedIn", purpose = "Introduce myself"): Promise<StartupDraftPitchResponse> {
+  const res = await fetch(`${API_BASE}/startups/contacts/${contactId}/draft`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ channel, purpose }),
+  });
+  if (!res.ok) throw new Error("Failed to draft startup pitch");
+  return res.json();
+}
+
+export async function deleteStartup(startupId: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/startups/${startupId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete startup");
+}
+
+

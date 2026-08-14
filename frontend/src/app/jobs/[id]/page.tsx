@@ -7,7 +7,7 @@ import ContactFinderModal from "@/components/ContactFinderModal";
 import IngestModal from "@/components/IngestModal";
 import OutreachPanel from "@/components/outreach/OutreachPanel";
 import { fetchJobDetail, updateJobDecision, JobItem } from "@/lib/api";
-import { Building2, MapPin, Sparkles, Check, BookmarkX, UserCheck, ArrowLeft, AlertTriangle, FileText, CheckCircle2 } from "lucide-react";
+import { Building2, MapPin, Sparkles, Check, BookmarkX, UserCheck, ArrowLeft, AlertTriangle, FileText, CheckCircle2, ExternalLink } from "lucide-react";
 
 export default function JobDetailPage() {
   const params = useParams();
@@ -68,6 +68,13 @@ export default function JobDetailPage() {
 
   const analysis = job.analysis;
 
+  const rawLink = job.application_url || job.source_url;
+  const jobLink = rawLink && rawLink !== "https://example.com/apply"
+    ? rawLink.startsWith("http://") || rawLink.startsWith("https://")
+      ? rawLink
+      : `https://${rawLink}`
+    : null;
+
   return (
     <div className="min-h-screen bg-background text-gray-100 pb-20">
       <Navbar onOpenIngest={() => setIngestOpen(true)} />
@@ -94,7 +101,20 @@ export default function JobDetailPage() {
                   {job.remote_type}
                 </span>
               </div>
-              <h1 className="mt-2 text-3xl font-black text-white">{job.title}</h1>
+              <div className="mt-2 flex items-center gap-3 flex-wrap">
+                <h1 className="text-3xl font-black text-white">{job.title}</h1>
+                {jobLink && (
+                  <a
+                    href={jobLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 px-3.5 py-1.5 text-xs font-bold text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300 transition-all shadow-sm"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open Job Posting
+                  </a>
+                )}
+              </div>
               <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
                 <MapPin className="h-4 w-4 text-gray-500" />
                 <span>{job.location || "Remote"}</span>

@@ -218,3 +218,75 @@ class ApplicationUpdate(BaseModel):
     outreach_status: Optional[str] = None
     notes: Optional[str] = None
 
+# Startup Schemas
+class StartupEnrichRequest(BaseModel):
+    domain_or_name: str
+
+class StartupEnrichmentResponse(BaseModel):
+    name: str
+    domain: Optional[str] = None
+    company_size: str = "1-15"
+    funding_stage: str = "Seed"
+    summary: Optional[str] = None
+    tech_stack: List[str] = Field(default_factory=list)
+    target_roles: List[str] = Field(default_factory=list)
+    website_url: Optional[str] = None
+
+class StartupCreate(BaseModel):
+    name: str
+    domain: Optional[str] = None
+    company_size: str = "1-15"
+    funding_stage: str = "Seed"
+    summary: Optional[str] = None
+    tech_stack: List[str] = Field(default_factory=list)
+    target_roles: List[str] = Field(default_factory=list)
+    website_url: Optional[str] = None
+    notes: Optional[str] = None
+
+class StartupContactRead(BaseModel):
+    id: int
+    startup_id: int
+    name: str
+    title: str
+    persona_type: str = "ENG_LEAD"
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    email: Optional[str] = None
+    activity_score: int = 75
+    activity_signals: List[str] = Field(default_factory=list)
+    fit_score: int = 80
+    created_at: datetime.datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class StartupRead(BaseModel):
+    id: int
+    name: str
+    domain: Optional[str] = None
+    company_size: str
+    funding_stage: str
+    summary: Optional[str] = None
+    tech_stack: List[str] = Field(default_factory=list)
+    target_roles: List[str] = Field(default_factory=list)
+    website_url: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+    contacts: List[StartupContactRead] = Field(default_factory=list)
+    model_config = ConfigDict(from_attributes=True)
+
+class StartupDraftPitchRequest(BaseModel):
+    channel: str = "LinkedIn" # "LinkedIn", "Email", "Other"
+    purpose: str = "Introduce myself"
+
+class StartupDraftPitchResponse(BaseModel):
+    contact_id: int
+    contact_name: str
+    contact_title: str
+    company_name: str
+    channel: str
+    purpose: str
+    subject: Optional[str] = None
+    draft_message: str
+    reasoning: Optional[str] = None
+
+

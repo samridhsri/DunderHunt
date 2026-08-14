@@ -22,11 +22,16 @@ class MessageGeneratorService:
             contact_title=ctx.contact_title,
             company=ctx.company,
             relationship=ctx.relationship or "Professional",
+            contact_context=f"Targeting {ctx.contact_name} ({ctx.contact_title}) at {ctx.company}",
             job_title=ctx.job_title,
+            job_url="N/A",
+            company_context=f"Company: {ctx.company}",
+            purpose=ctx.purpose,
             candidate_name=candidate_name,
             relevant_user_experience=ctx.relevant_user_experience or "AI/ML software engineering and system architecture",
-            channel=ctx.channel,
-            purpose=ctx.purpose
+            relevant_user_projects="N/A",
+            candidate_differentiators="N/A",
+            channel=ctx.channel
         )
 
         try:

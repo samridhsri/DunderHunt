@@ -232,3 +232,45 @@ class SearchCache(Base):
     
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
+class Startup(Base):
+    __tablename__ = "startups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), index=True)
+    domain: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True, nullable=True)
+    company_size: Mapped[str] = mapped_column(String(50), default="1-15") # 1-15, 15-50, 50-200, 200+
+    funding_stage: Mapped[str] = mapped_column(String(50), default="Seed") # Seed, Series A, Series B, Bootstrapped, Late Stage
+    summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tech_stack: Mapped[List[str]] = mapped_column(JSON, default=list)
+    target_roles: Mapped[List[str]] = mapped_column(JSON, default=list)
+    website_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    contacts: Mapped[List["StartupContact"]] = sa_relationship("StartupContact", back_populates="startup", cascade="all, delete-orphan", lazy="selectin")
+
+class StartupContact(Base):
+    __tablename__ = "startup_contacts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    startup_id: Mapped[int] = mapped_column(Integer, ForeignKey("startups.id", ondelete="CASCADE"), index=True)
+    
+    name: Mapped[str] = mapped_column(String(255))
+    title: Mapped[str] = mapped_column(String(255)) # Designation
+    persona_type: Mapped[str] = mapped_column(String(50), default="ENG_LEAD") # FOUNDER, ENG_LEAD, RECRUITER, PEER
+    
+    linkedin_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    github_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    
+    activity_score: Mapped[int] = mapped_column(Integer, default=75) # 0-100
+    activity_signals: Mapped[List[str]] = mapped_column(JSON, default=list)
+    fit_score: Mapped[int] = mapped_column(Integer, default=80)
+    
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    
+    startup: Mapped["Startup"] = sa_relationship("Startup", back_populates="contacts")
+
+
